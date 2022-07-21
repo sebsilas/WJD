@@ -1,9 +1,9 @@
 library(DBI)
 library(RSQLite)
 library(tidyverse)
-library(ggplot2)
 library(psych)
 library(itembankr)
+
 
 # custom functions to handle this particular dataset
 
@@ -111,12 +111,44 @@ t2 <- WJD("ngram")
 t3 <- WJD("main")
 t4 <- WJD("phrases")
 
+tt <- purrr::map_dfr(t4$durations, function(x) tibble::tibble(dur_length = length(itembankr::str_mel_to_vector(x))))
+tt2 <- purrr::map_dfr(t4$orig_abs_melody, function(x) tibble::tibble(mel_length = length(itembankr::str_mel_to_vector(x))))
+
+tt3 <- cbind(tt, tt2)
+
+tt3$same <- apply(tt3, MARGIN = 1, function(row) {
+  dur <- row['dur_length']
+  mel <- row['mel_length']
+  dur == mel
+})
+
+
 #usethis::use_data(WJD, overwrite = TRUE)
 
 
-# usethis::use_data(ngram_db, main_db, phrases_db, internal = TRUE, overwrite = TRUE)
+
+# make minimal version
 
 
-#load('data/WJD.rda')
+# load('data/WJD.rda')
+
+files_db <- NA
+ngram_db <- NA
+main_db <- WJD("main")
+phrases_db <- WJD("phrases")
+
+
+WJD <- function(key) {
+  l <- list("files" = files_db,
+            "ngram" = ngram_db,
+            "main" = main_db,
+            "phrases" = phrases_db)
+  l[[key]]
+}
+
+usethis::use_data(WJD, overwrite = TRUE)
+
+WJD("phrases")
+
 
 
