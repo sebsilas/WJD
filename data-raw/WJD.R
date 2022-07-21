@@ -140,7 +140,7 @@ phrases_db <- WJD("phrases")
 phrases_db <- phrases_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations)
 
 
-usethis::use_data(files_db, ngram_db, main_db, phrases_db, internal = TRUE, overwrite = TRUE)
+usethis::use_data(main_db, phrases_db, overwrite = TRUE)
 
 
 
@@ -152,9 +152,9 @@ WJD <- function(key) {
   l[[key]]
 }
 
+
 usethis::use_data(WJD, overwrite = TRUE)
 
-WJD("phrases")
 
 
 
