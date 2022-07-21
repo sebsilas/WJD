@@ -130,17 +130,23 @@ tt3$same <- apply(tt3, MARGIN = 1, function(row) {
 # make minimal version
 
 
-# load('data/WJD.rda')
+# load('../WJD.rda')
 
 files_db <- NA
 ngram_db <- NA
 main_db <- WJD("main")
+main_db <- main_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations)
 phrases_db <- WJD("phrases")
+phrases_db <- phrases_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations)
+
+
+usethis::use_data(files_db, ngram_db, main_db, phrases_db, internal = TRUE, overwrite = TRUE)
+
 
 
 WJD <- function(key) {
-  l <- list("files" = files_db,
-            "ngram" = ngram_db,
+  l <- list("files" = NA,
+            "ngram" = NA,
             "main" = main_db,
             "phrases" = phrases_db)
   l[[key]]
