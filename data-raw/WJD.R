@@ -44,6 +44,8 @@ sections <-dbReadTable(con, 'sections')
 
 dbDisconnect(con)
 
+rm(con)
+
 # the WJD already has phrase information
 phrases <- sections[sections$type=="PHRASE", ]
 
@@ -66,64 +68,104 @@ relative.phrases.factor <- as.factor(unlist(melodic_phrases$melody))
 no_unique <- length(levels(relative.phrases.factor))
 
 
-# remove the empty mel
-melodic_phrases <- melodic_phrases[!melodic_phrases$melody=="", ]
-# remove the random repeated note melodies
-melodic_phrases <- melodic_phrases[!melodic_phrases$melody=="0", ]
-melodic_phrases <- melodic_phrases[!melodic_phrases$melody=="0,0", ]
-melodic_phrases <- melodic_phrases[!melodic_phrases$melody=="0,0,0", ]
-melodic_phrases <- melodic_phrases[!melodic_phrases$melody=="-6,6", ] # there was probably a good reason for this which I haven't documented..
+# remove empty/weird mels
+
+melodic_phrases <- melodic_phrases %>%
+  filter(!melody %in% c(
+    "", "0", "0,0", "0,0,0",
+    "-6,6" # there was probably a good reason for removing this one, this which I haven't documented..
+  ))
+
+
 
 melodic_phrases$row_id <- 1:nrow(melodic_phrases)
 
 # join with tempo
-melodic_phrases_scaled <- melodic_phrases %>% dplyr::left_join(solo_info, by = "melid") %>%
-  mutate(bpm_80_scale = avgtempo/80,
-         durations_original = durations) %>% rowwise() %>%
-  mutate(durations = paste0(round(itembankr::str_mel_to_vector(durations_original) * bpm_80_scale, 2), collapse = ","),
-         mean_duration = mean(itembankr::str_mel_to_vector(durations), na.rm = TRUE)) %>%
+melodic_phrases <- melodic_phrases %>%
+  dplyr::left_join(select(solo_info, melid, avgtempo), by = "melid")
+
+
+# we want a min duration of .25 seconds
+
+melodic_phrases <- melodic_phrases %>%
+  mutate(crotchet_speed_in_seconds = 60/avgtempo) %>%
+  rowwise() %>%
+  mutate(
+    durations_v = list(itembankr::str_mel_to_vector(durations)),
+    min_duration = min(unlist(durations_v), na.rm = TRUE),
+    ratio_to_quarter_ms = .25/min_duration
+  ) %>%
+  filter(
+    !is.infinite(ratio_to_quarter_ms)
+  ) %>%
+  mutate(
+    durations_v_corrected = case_when(ratio_to_quarter_ms > 1 ~ list(durations_v * ratio_to_quarter_ms), TRUE ~ list(durations_v)),
+    max_dur_corrected = max(unlist(durations_v_corrected), na.rm = TRUE)
+  ) %>%
   ungroup() %>%
-  select(orig_abs_melody, durations, melody, N, row_id)
+  filter(max_dur_corrected < 4)
+
+
+
+# check
+melodic_phrases %>%
+  pull(durations_v_corrected) %>%
+  unlist() %>%
+  as_tibble() %>%
+  filter(value < .3) %>%
+    ggplot(aes(x = value)) +
+      geom_histogram()
+
+
+melodic_phrases <- melodic_phrases %>%
+  rowwise() %>%
+  mutate(
+   durations_original = durations,
+   durations = paste0(unlist(round(durations_v_corrected, 2)), collapse = ",")
+  ) %>%
+  ungroup() %>%
+  select(orig_abs_melody, durations) %>%
+  rename(abs_melody = orig_abs_melody)
 
 
 
 
-#hist(phrases_dbs2$mean_duration)
-#mean(phrases_dbs2$mean_duration, na.rm = TRUE)
-#mean(itembankr::WJD("main")$mean_duration, na.rm = TRUE)
-
-# now use the itembankr function
-# there are no midi/musicxml files (this the WJD are preprocessed everything for us)
-# we can give our dataframe to the corpus_to_item_bank function, which them simply computes features for us
-# as well as makes an ngram database
+rm(melodies)
 
 
-melodic_phrases_test <- melodic_phrases %>% slice(1:2)
-
-WJD <- itembankr::corpus_to_item_bank(corpus_name = "WJD",
-                                      corpus_df = melodic_phrases,
-                                      output_type = "both",
-                                      phrases_db = melodic_phrases, launch_app = FALSE)
-
-
-t1 <- WJD("files")
-t2 <- WJD("ngram")
-t3 <- WJD("main")
-t4 <- WJD("phrases")
-
-tt <- purrr::map_dfr(t4$durations, function(x) tibble::tibble(dur_length = length(itembankr::str_mel_to_vector(x))))
-tt2 <- purrr::map_dfr(t4$orig_abs_melody, function(x) tibble::tibble(mel_length = length(itembankr::str_mel_to_vector(x))))
-
-tt3 <- cbind(tt, tt2)
-
-tt3$same <- apply(tt3, MARGIN = 1, function(row) {
-  dur <- row['dur_length']
-  mel <- row['mel_length']
-  dur == mel
-})
+# melodic_phrases_test <- melodic_phrases %>% slice_sample(n = 20)
+#
+#
+# WJD_test <- corpus_to_item_bank("WJD_test",
+#                                 input = "phrase_df",
+#                                 output = "all",
+#                                 input_df = melodic_phrases_test,
+#                                 launch_app = FALSE)
 
 
-#usethis::use_data(WJD, overwrite = TRUE)
+# ngram_test <- WJD_test("ngram")
+# phrase_test <- WJD_test("phrase")
+# ngram_test_min <- ngram_test %>% filter(!duplicated(melody))
+# ngram_test_100 <- ngram_test_min %>% slice_sample(n = 100)
+
+# write.csv(ngram_test_100, file = 'WJD_100_ngram.csv')
+
+
+WJD <- corpus_to_item_bank("WJD",
+                           input = "phrase_df",
+                           output = "all",
+                           input_df = melodic_phrases, launch_app = FALSE)
+
+usethis::use_data(WJD, overwrite = TRUE)
+
+# tools::checkRdaFiles('data/WJD.rda')
+# ?tools::resaveRdaFiles('data/WJD_uncompressed.rda')
+
+
+# tools::checkRdaFiles(list.files('data', full.names = TRUE))
+
+# ngram <- WJD("ngram")
+# phrase <- WJD("phrase")
 
 
 
@@ -132,28 +174,45 @@ tt3$same <- apply(tt3, MARGIN = 1, function(row) {
 
 # load('../WJD.rda')
 
-files_db <- NA
-ngram_db <- NA
-main_db <- WJD("main")
-main_db <- main_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations, mean_duration)
-phrases_db <- WJD("phrases")
-phrases_db <- phrases_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations, mean_duration)
-
-
-usethis::use_data(main_db, phrases_db, overwrite = TRUE)
-
-
-
-WJD <- function(key) {
-  l <- list("files" = NA,
-            "ngram" = NA,
-            "main" = main_db,
-            "phrases" = phrases_db)
-  l[[key]]
-}
+# files_db <- NA
+# ngram_db <- NA
+# main_db <- WJD("main")
+# main_db <- main_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations, mean_duration)
+# phrases_db <- WJD("phrases")
+# phrases_db <- phrases_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations, mean_duration)
+#
+#
+#
+#
+# usethis::use_data(main_db, phrases_db, overwrite = TRUE)
+#
+#
+#
+# WJD <- function(key) {
+#   l <- list("files" = NA,
+#             "ngram" = NA,
+#             "main" = main_db,
+#             "phrases" = phrases_db)
+#   l[[key]]
+# }
 
 
 usethis::use_data(WJD, overwrite = TRUE)
+
+
+# phrase <- WJD("phrase")
+# ngram <- WJD("ngram")
+#
+#
+# usethis::use_data(phrase, overwrite = TRUE)
+# usethis::use_data(ngram, overwrite = TRUE)
+
+
+
+
+
+
+
 
 
 
