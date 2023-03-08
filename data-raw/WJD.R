@@ -133,86 +133,70 @@ melodic_phrases <- melodic_phrases %>%
 rm(melodies)
 
 
-# melodic_phrases_test <- melodic_phrases %>% slice_sample(n = 20)
-#
-#
-# WJD_test <- corpus_to_item_bank("WJD_test",
-#                                 input = "phrase_df",
-#                                 output = "all",
-#                                 input_df = melodic_phrases_test,
-#                                 launch_app = FALSE)
+melodic_phrases_test <- melodic_phrases %>% slice_sample(n = 20)
 
 
-# ngram_test <- WJD_test("ngram")
-# phrase_test <- WJD_test("phrase")
-# ngram_test_min <- ngram_test %>% filter(!duplicated(melody))
-# ngram_test_100 <- ngram_test_min %>% slice_sample(n = 100)
-
-# write.csv(ngram_test_100, file = 'WJD_100_ngram.csv')
-
-
-WJD <- corpus_to_item_bank("WJD",
-                           input = "phrase_df",
-                           output = "all",
-                           input_df = melodic_phrases, launch_app = FALSE)
-
-usethis::use_data(WJD, overwrite = TRUE)
-
-# tools::checkRdaFiles('data/WJD.rda')
-# ?tools::resaveRdaFiles('data/WJD_uncompressed.rda')
+create_item_bank("WJD_test",
+                input = "phrase_df",
+                output = "all",
+                input_df = melodic_phrases_test,
+                launch_app = FALSE)
 
 
-# tools::checkRdaFiles(list.files('data', full.names = TRUE))
+# combined <- WJD_test("combined")
 
-# ngram <- WJD("ngram")
-# phrase <- WJD("phrase")
-
-
-
-# make minimal version
-
-
-# load('../WJD.rda')
-
-# files_db <- NA
-# ngram_db <- NA
-# main_db <- WJD("main")
-# main_db <- main_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations, mean_duration)
-# phrases_db <- WJD("phrases")
-# phrases_db <- phrases_db %>% dplyr::select(span, d.entropy, step.cont.loc.var, mode, tonalness, log_freq, N, melody, durations, mean_duration)
-#
-#
-#
-#
-# usethis::use_data(main_db, phrases_db, overwrite = TRUE)
-#
-#
-#
-# WJD <- function(key) {
-#   l <- list("files" = NA,
-#             "ngram" = NA,
-#             "main" = main_db,
-#             "phrases" = phrases_db)
-#   l[[key]]
-# }
-
-
-usethis::use_data(WJD, overwrite = TRUE)
-
-
-# phrase <- WJD("phrase")
-# ngram <- WJD("ngram")
-#
-#
-# usethis::use_data(phrase, overwrite = TRUE)
-# usethis::use_data(ngram, overwrite = TRUE)
+# See what creates the smallest file
+save(WJD_test, file = "data-raw/WJD_test_gzip.rda", compress = "gzip")
+save(WJD_test, file = "data-raw/WJD_test_bzip2.rda", compress = "bzip2")
+save(WJD_test, file = "data-raw/WJD_test_xz.rda", compress = "xz")
 
 
 
 
 
 
+create_item_bank("WJD",
+                 input = "phrase_df",
+                 output = "all",
+                 input_df = melodic_phrases, launch_app = FALSE)
 
+# Started 24/01/2023, 23:23
+# Finished 26/01/2023, 09:23
+
+
+load('WJD_ngram.rda')
+load('WJD_phrase.rda')
+load('WJD_combined.rda')
+
+
+# See what creates the smallest file
+save(ngram_item_bank, file = "data-raw/WJD_ngram_gzip.rda", compress = "gzip")
+save(ngram_item_bank, file = "data-raw/WJD_ngram_bzip2.rda", compress = "bzip2")
+save(ngram_item_bank, file = "data-raw/WJD_ngram_xz.rda", compress = "xz")
+
+save(phrase_item_bank, file = "data-raw/WJD_phrase_gzip.rda", compress = "gzip")
+save(phrase_item_bank, file = "data-raw/WJD_phrase_bzip2.rda", compress = "bzip2")
+save(phrase_item_bank, file = "data-raw/WJD_phrase_xz.rda", compress = "xz")
+
+save(combined_item_bank, file = "data-raw/WJD_combined_gzip.rda", compress = "gzip")
+save(combined_item_bank, file = "data-raw/WJD_combined_bzip2.rda", compress = "bzip2")
+save(combined_item_bank, file = "data-raw/WJD_combined_xz.rda", compress = "xz")
+
+
+
+# Winners
+load(file = "data-raw/WJD_combined_xz.rda")
+load(file = "data-raw/WJD_phrase_xz.rda")
+load(file = "data-raw/WJD_ngram_xz.rda")
+
+# xz always wins here
+
+combined_item_bank <- combined_item_bank %>% itembankr::set_item_bank_class(extra = "combined_item_bank")
+ngram_item_bank <- ngram_item_bank %>% itembankr::set_item_bank_class(extra = "ngram_item_bank")
+phrase_item_bank <- phrase_item_bank %>% itembankr::set_item_bank_class(extra = "phrase_item_bank")
+
+
+use_data(combined_item_bank, ngram_item_bank, phrase_item_bank, compress = "xz", overwrite = TRUE)
 
 
 
