@@ -19,7 +19,7 @@ get_phrase <- function(mel_id, start, end, get = "pitch") {
            melody = paste0(diff(pitch), collapse = ",")) %>%
     cbind(tibble(melid = mel_id)) %>%
     musicassessr::to_string_df(exclude_cols = c("melid", "N", "melody")) %>%
-    rename(orig_abs_melody = pitch, durations = duration)
+    dplyr::rename(abs_melody = pitch, durations = duration)
 
 }
 
@@ -77,63 +77,66 @@ melodic_phrases <- melodic_phrases %>%
   ))
 
 
+#
+# melodic_phrases$row_id <- 1:nrow(melodic_phrases)
+#
+# # join with tempo
+# melodic_phrases <- melodic_phrases %>%
+#   dplyr::left_join(select(solo_info, melid, avgtempo), by = "melid")
+#
+#
+# # we want a min duration of .25 seconds
+#
+# melodic_phrases <- melodic_phrases %>%
+#   mutate(crotchet_speed_in_seconds = 60/avgtempo) %>%
+#   rowwise() %>%
+#   mutate(
+#     durations_v = list(itembankr::str_mel_to_vector(durations)),
+#     min_duration = min(unlist(durations_v), na.rm = TRUE),
+#     ratio_to_quarter_ms = .25/min_duration
+#   ) %>%
+#   filter(
+#     !is.infinite(ratio_to_quarter_ms)
+#   ) %>%
+#   mutate(
+#     durations_v_corrected = case_when(ratio_to_quarter_ms > 1 ~ list(durations_v * ratio_to_quarter_ms), TRUE ~ list(durations_v)),
+#     max_dur_corrected = max(unlist(durations_v_corrected), na.rm = TRUE)
+#   ) %>%
+#   ungroup() %>%
+#   filter(max_dur_corrected < 4)
+#
+#
+#
+# # check
+# melodic_phrases %>%
+#   pull(durations_v_corrected) %>%
+#   unlist() %>%
+#   as_tibble() %>%
+#   filter(value < .3) %>%
+#     ggplot(aes(x = value)) +
+#       geom_histogram()
+#
+#
+# melodic_phrases <- melodic_phrases %>%
+#   rowwise() %>%
+#   mutate(
+#    durations_original = durations,
+#    durations = paste0(unlist(round(durations_v_corrected, 2)), collapse = ",")
+#   ) %>%
+#   ungroup() %>%
+#   select(orig_abs_melody, durations) %>%
+#   rename(abs_melody = orig_abs_melody)
+#
+#
+#
+#
+# rm(melodies)
 
-melodic_phrases$row_id <- 1:nrow(melodic_phrases)
-
-# join with tempo
 melodic_phrases <- melodic_phrases %>%
-  dplyr::left_join(select(solo_info, melid, avgtempo), by = "melid")
+  select(abs_melody, durations)
 
-
-# we want a min duration of .25 seconds
-
-melodic_phrases <- melodic_phrases %>%
-  mutate(crotchet_speed_in_seconds = 60/avgtempo) %>%
-  rowwise() %>%
-  mutate(
-    durations_v = list(itembankr::str_mel_to_vector(durations)),
-    min_duration = min(unlist(durations_v), na.rm = TRUE),
-    ratio_to_quarter_ms = .25/min_duration
-  ) %>%
-  filter(
-    !is.infinite(ratio_to_quarter_ms)
-  ) %>%
-  mutate(
-    durations_v_corrected = case_when(ratio_to_quarter_ms > 1 ~ list(durations_v * ratio_to_quarter_ms), TRUE ~ list(durations_v)),
-    max_dur_corrected = max(unlist(durations_v_corrected), na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  filter(max_dur_corrected < 4)
-
-
-
-# check
-melodic_phrases %>%
-  pull(durations_v_corrected) %>%
-  unlist() %>%
-  as_tibble() %>%
-  filter(value < .3) %>%
-    ggplot(aes(x = value)) +
-      geom_histogram()
-
-
-melodic_phrases <- melodic_phrases %>%
-  rowwise() %>%
-  mutate(
-   durations_original = durations,
-   durations = paste0(unlist(round(durations_v_corrected, 2)), collapse = ",")
-  ) %>%
-  ungroup() %>%
-  select(orig_abs_melody, durations) %>%
-  rename(abs_melody = orig_abs_melody)
-
-
-
-
-rm(melodies)
-
-
-melodic_phrases_test <- melodic_phrases %>% slice_sample(n = 20)
+melodic_phrases_test <- melodic_phrases %>%
+  slice_sample(n = 5)
 
 
 create_item_bank("WJD_test",
@@ -143,7 +146,9 @@ create_item_bank("WJD_test",
                 launch_app = FALSE)
 
 
-# combined <- WJD_test("combined")
+load('WJD_test_ngram.rda')
+load('WJD_test_phrase.rda')
+load('WJD_test_combined.rda')
 
 # See what creates the smallest file
 save(WJD_test, file = "data-raw/WJD_test_gzip.rda", compress = "gzip")
@@ -162,6 +167,11 @@ create_item_bank("WJD",
 
 # Started 24/01/2023, 23:23
 # Finished 26/01/2023, 09:23
+# Took: 1 day, 10 hours
+
+# Started: 05/06/2023, 08.53
+# Similarity Computation complete: 16.36
+# Finished: 08/06/2023, 2.04
 
 
 load('WJD_ngram.rda')
@@ -198,6 +208,72 @@ phrase_item_bank <- phrase_item_bank %>% itembankr::set_item_bank_class(extra = 
 
 use_data(combined_item_bank, ngram_item_bank, phrase_item_bank, compress = "xz", overwrite = TRUE)
 
+
+# Remove redundancy and resave manually
+
+
+# Phrase
+
+load('data/phrase_item_bank.rda')
+
+phrase_item_bank %>%
+  tibble::as_tibble() %>%
+  itembankr::remove_redundancy(remove_redundancy = TRUE) %>%
+  itembankr::save_item_bank(name = "WJD", type = "phrase")
+
+
+load('WJD_phrase.rda')
+
+phrase_item_bank <- item_bank
+rm(item_bank)
+
+# N-gram
+
+load('data/ngram_item_bank.rda')
+
+
+ngram_item_bank %>%
+  tibble::as_tibble() %>%
+  itembankr::remove_redundancy(remove_redundancy = TRUE) %>%
+  itembankr::save_item_bank(name = "WJD", type = "ngram")
+
+
+load('WJD_ngram.rda')
+
+attributes(item_bank)
+
+ngram_item_bank <- item_bank
+rm(item_bank)
+
+
+
+
+# Combined
+load('data/combined_item_bank.rda')
+
+
+combined_item_bank %>%
+  tibble::as_tibble() %>%
+  itembankr::remove_redundancy(remove_redundancy = TRUE) %>%
+  itembankr::save_item_bank(name = "WJD", type = "combined")
+
+
+load('WJD_combined.rda')
+
+attributes(item_bank)
+
+combined_item_bank <- item_bank
+rm(item_bank)
+
+
+use_data(combined_item_bank, ngram_item_bank, phrase_item_bank, compress = "xz", overwrite = TRUE)
+
+rm(combined_item_bank)
+
+# Add to DB
+
+# itembankr::store_item_bank_in_db(phrase_item_bank, item_bank_name = "WJD_phrase", item_bank_description = "The WJD corpus as a phrase item bank.")
+# itembankr::store_item_bank_in_db(ngram_item_bank, item_bank_name = "WJD_ngram", item_bank_description = "The WJD corpus as an N-gram item bank.")
 
 
 
