@@ -1,11 +1,15 @@
 Package: WJD
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Weimar Jazz Database itembankr item bank
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Authors@R: 
+    person(given = "Sebastian",
+           family = "Silas",
+           role = c("aut", "cre"),
+           email = "sebsilas@gmail.com",
+           comment = c(ORCID = "0000-0001-8140-6528"))
+Maintainer: Seb Silas <sebsilas@gmail.com>
+Description: A pre-made itembankr item bank of the Weimar Jazz Database.
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
